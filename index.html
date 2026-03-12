@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Portfolio Cute</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+/* ===== GLOBAL ===== */
+
+body{
+margin:0;
+font-family:Segoe UI;
+background:linear-gradient(180deg,#0f172a,#020617);
+color:white;
+overflow-x:hidden;
+}
+
+/* ===== HEADER ===== */
+
+header{
+
+background:rgba(30,41,59,0.8);
+backdrop-filter:blur(10px);
+padding:15px;
+text-align:center;
+box-shadow:0 5px 20px rgba(0,0,0,0.4);
+
+}
+
+header h1{
+margin:0;
+font-size:22px;
+}
+
+/* ===== SUMMARY ===== */
+
+.summary{
+
+display:flex;
+justify-content:space-around;
+margin-top:10px;
+flex-wrap:wrap;
+
+}
+
+.card{
+
+background:#1e293b;
+padding:12px;
+border-radius:12px;
+min-width:110px;
+box-shadow:0 5px 15px rgba(0,0,0,0.4);
+transition:0.3s;
+
+}
+
+.card:hover{
+
+transform:translateY(-3px);
+
+}
+
+/* ===== TABLE ===== */
+
+.container{
+
+padding:15px;
+
+}
+
+table{
+
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+
+}
+
+th{
+
+background:#020617;
+padding:10px;
+
+}
+
+td{
+
+padding:10px;
+text-align:center;
+border-bottom:1px solid #334155;
+
+}
+
+/* ===== COLORS ===== */
+
+.green{
+
+color:#22c55e;
+font-weight:bold;
+
+}
+
+.red{
+
+color:#ef4444;
+font-weight:bold;
+
+}
+
+/* ===== CHARTS ===== */
+
+.charts{
+
+display:grid;
+grid-template-columns:1fr;
+gap:20px;
+margin-top:20px;
+
+}
+
+.chartBox{
+
+background:#1e293b;
+padding:15px;
+border-radius:12px;
+
+}
+
+/* ===== ANIMATION ===== */
+
+.fade{
+
+animation:fade 0.5s;
+
+}
+
+@keyframes fade{
+
+from{opacity:0}
+to{opacity:1}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<h1>📈 Cute Stock Portfolio</h1>
+
+<div class="summary">
+
+<div class="card">💰 Vốn<br><span id="capital">0</span></div>
+
+<div class="card">💎 Tài sản<br><span id="asset">0</span></div>
+
+<div class="card">📊 Lãi/Lỗ<br><span id="profit">0</span></div>
+
+</div>
+
+</header>
+
+<div class="container">
+
+<table>
+
+<thead>
+
+<tr>
+<th>Mã</th>
+<th>SL</th>
+<th>Giá mua</th>
+<th>Giá</th>
+<th>%</th>
+<th>Lãi</th>
+</tr>
+
+</thead>
+
+<tbody id="table"></tbody>
+
+</table>
+
+<div class="charts">
+
+<div class="chartBox">
+
+<canvas id="navChart"></canvas>
+
+</div>
+
+<div class="chartBox">
+
+<canvas id="stockChart"></canvas>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+/* ===== DANH MỤC ===== */
+
+let stocks=[
+
+{ticker:"HPG",qty:61,buy:30},
+{ticker:"CTG",qty:50,buy:36},
+{ticker:"BID",qty:40,buy:45},
+{ticker:"TCB",qty:60,buy:40}
+
+]
+
+/* ===== RENDER TABLE ===== */
+
+function render(){
+
+let table=document.getElementById("table")
+
+table.innerHTML=""
+
+stocks.forEach(s=>{
+
+let tr=document.createElement("tr")
+
+tr.className="fade"
+
+tr.innerHTML=`
+
+<td>${s.ticker}</td>
+<td>${s.qty}</td>
+<td>${s.buy}</td>
+
+<td id="price_${s.ticker}">...</td>
+<td id="percent_${s.ticker}"></td>
+<td id="profit_${s.ticker}"></td>
+
+`
+
+table.appendChild(tr)
+
+})
+
+}
+
+/* ===== API ===== */
+
+async function getPrices(){
+
+let prices={}
+
+for(let s of stocks){
+
+try{
+
+let res=await fetch(
+
+"https://api.allorigins.win/raw?url="+
+encodeURIComponent(
+"https://finfo-api.vndirect.com.vn/v4/stock_prices?q=code:"+s.ticker
+)
+
+)
+
+let data=await res.json()
+
+prices[s.ticker]=data.data[0].lastPrice
+
+}catch(e){
+
+console.log("error",s.ticker)
+
+}
+
+}
+
+return prices
+
+}
+
+/* ===== CHART NAV ===== */
+
+let navHistory=[]
+
+let navChart=new Chart(
+
+document.getElementById("navChart"),
+
+{
+
+type:"line",
+
+data:{
+
+labels:[],
+
+datasets:[{
+
+label:"NAV",
+
+data:[],
+
+borderColor:"#22c55e",
+
+tension:0.3
+
+}]
+
+}
+
+}
+
+)
+
+/* ===== CHART STOCK ===== */
+
+let stockChart=new Chart(
+
+document.getElementById("stockChart"),
+
+{
+
+type:"bar",
+
+data:{
+
+labels:[],
+
+datasets:[{
+
+label:"Profit",
+
+data:[]
+
+}]
+
+}
+
+}
+
+)
+
+/* ===== UPDATE ===== */
+
+async function update(){
+
+let prices=await getPrices()
+
+let totalAsset=0
+let totalProfit=0
+let capital=0
+
+let profitList=[]
+let labels=[]
+
+stocks.forEach(s=>{
+
+let price=prices[s.ticker]
+
+if(!price) return
+
+let value=price*s.qty*1000
+
+let profit=(price-s.buy)*s.qty*1000
+
+let percent=((price-s.buy)/s.buy*100).toFixed(2)
+
+document.getElementById("price_"+s.ticker).innerText=price
+
+let percentEl=document.getElementById("percent_"+s.ticker)
+
+percentEl.innerText=percent+"%"
+
+percentEl.className=percent>=0?"green":"red"
+
+let p=document.getElementById("profit_"+s.ticker)
+
+p.innerText=profit.toLocaleString()
+
+p.className=profit>=0?"green":"red"
+
+totalAsset+=value
+totalProfit+=profit
+capital+=s.buy*s.qty*1000
+
+profitList.push(profit)
+labels.push(s.ticker)
+
+})
+
+/* ===== SUMMARY ===== */
+
+document.getElementById("capital").innerText=capital.toLocaleString()
+
+document.getElementById("asset").innerText=totalAsset.toLocaleString()
+
+let profitEl=document.getElementById("profit")
+
+profitEl.innerText=totalProfit.toLocaleString()
+
+profitEl.className=totalProfit>=0?"green":"red"
+
+/* ===== NAV CHART ===== */
+
+navHistory.push(totalAsset)
+
+navChart.data.labels.push(navHistory.length)
+
+navChart.data.datasets[0].data.push(totalAsset)
+
+navChart.update()
+
+/* ===== PROFIT CHART ===== */
+
+stockChart.data.labels=labels
+
+stockChart.data.datasets[0].data=profitList
+
+stockChart.update()
+
+}
+
+/* ===== START ===== */
+
+render()
+
+update()
+
+setInterval(update,5000)
+
+</script>
+
+</body>
+
+</html>
