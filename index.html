@@ -20,14 +20,13 @@ padding:20px;
 
 h1{
 text-align:center;
-margin-bottom:20px;
 }
 
 .cards{
 display:flex;
 gap:10px;
 justify-content:center;
-margin-bottom:20px;
+margin:20px 0;
 }
 
 .card{
@@ -36,13 +35,11 @@ padding:15px;
 border-radius:12px;
 width:120px;
 text-align:center;
-box-shadow:0 0 10px rgba(0,0,0,0.4);
 }
 
 table{
 width:100%;
 border-collapse:collapse;
-margin-top:20px;
 }
 
 th,td{
@@ -58,19 +55,14 @@ tr{
 border-bottom:1px solid #334155;
 }
 
-.green{
-color:#22c55e;
-}
-
-.red{
-color:#ef4444;
-}
+.green{color:#22c55e}
+.red{color:#ef4444}
 
 .chart{
 background:#1e293b;
-padding:15px;
-border-radius:12px;
+padding:20px;
 margin-top:20px;
+border-radius:12px;
 }
 
 </style>
@@ -134,14 +126,16 @@ async function getPrice(symbol){
 try{
 
 const res = await fetch(
-"https://api.simplize.vn/api/quote/"+symbol
+"https://price.tpbs.com.vn/api/StockBoardApi/getStockList"
 )
 
 const data = await res.json()
 
-return data.close
+const stock = data.find(s=>s.sym===symbol)
 
-}catch{
+return stock ? stock.lastPrice : null
+
+}catch(e){
 
 return null
 
@@ -166,27 +160,27 @@ if(!price) continue
 const cost=s.buy*s.qty
 const value=price*s.qty
 const profit=value-cost
-const percent=((price-s.buy)/s.buy*100)
+const percent=(price-s.buy)/s.buy*100
 
 capital+=cost
 asset+=value
 
-const row=`
+table.innerHTML+=`
+
 <tr>
 <td>${s.code}</td>
 <td>${s.qty}</td>
 <td>${s.buy}</td>
-<td>${price.toFixed(2)}</td>
-<td class="${percent>=0?"green":"red"}">
+<td>${price}</td>
+<td class="${percent>=0?'green':'red'}">
 ${percent.toFixed(2)}%
 </td>
-<td class="${profit>=0?"green":"red"}">
+<td class="${profit>=0?'green':'red'}">
 ${profit.toFixed(0)}
 </td>
 </tr>
-`
 
-table.innerHTML+=row
+`
 
 }
 
@@ -196,6 +190,7 @@ document.getElementById("capital").innerText=capital.toFixed(0)
 document.getElementById("asset").innerText=asset.toFixed(0)
 
 const profitEl=document.getElementById("profit")
+
 profitEl.innerText=totalProfit.toFixed(0)
 profitEl.className=totalProfit>=0?"green":"red"
 
@@ -205,33 +200,33 @@ updateChart(asset)
 
 const ctx=document.getElementById("navChart")
 
-const navChart=new Chart(ctx,{
+const chart=new Chart(ctx,{
 type:"line",
 data:{
 labels:[],
-datasets:[
-{
+datasets:[{
 label:"NAV",
 data:[],
 borderColor:"#22c55e"
-}
-]
+}]
 }
 })
 
-function updateChart(value){
+function updateChart(v){
 
-const time=new Date().toLocaleTimeString()
+const t=new Date().toLocaleTimeString()
 
-navChart.data.labels.push(time)
-navChart.data.datasets[0].data.push(value)
+chart.data.labels.push(t)
+chart.data.datasets[0].data.push(v)
 
-if(navChart.data.labels.length>20){
-navChart.data.labels.shift()
-navChart.data.datasets[0].data.shift()
+if(chart.data.labels.length>20){
+
+chart.data.labels.shift()
+chart.data.datasets[0].data.shift()
+
 }
 
-navChart.update()
+chart.update()
 
 }
 
